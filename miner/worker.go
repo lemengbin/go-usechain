@@ -443,10 +443,9 @@ func (self *worker) commitNewWork() {
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
-		//GasLimit:   core.CalcGasLimit(parent),
-		GasLimit: 210000000,
-		Extra:    self.extra,
-		Time:     big.NewInt(tstamp),
+		GasLimit:   210000000,
+		Extra:      self.extra,
+		Time:       big.NewInt(tstamp),
 	}
 	blockNumber := header.Number
 	if header.Number.Int64() >= common.VoteSlotForGenesis && int64(new(big.Int).Mod(header.Number, common.VoteSlot).Cmp(common.Big0)) == 0 {
@@ -456,13 +455,14 @@ func (self *worker) commitNewWork() {
 	}
 
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
+	coinbaseTemp := self.coinbase
 	if atomic.LoadInt32(&self.mining) == 1 {
 		totalMinerNum := minerlist.ReadMinerNum(self.current.state)
 
-		if !minerlist.IsMiner(self.current.state, self.coinbase, totalMinerNum) {
+		/*if !minerlist.IsMiner(self.current.state, self.coinbase, totalMinerNum) {
 			log.Error("Coinbase should be legal miner address, invalid miner")
 			return
-		}
+		}*/
 
 		// collect pre block info and calculate whether the miner is correct for current block
 		var preQr []byte
@@ -474,7 +474,8 @@ func (self *worker) commitNewWork() {
 		preCoinbase := parent.Coinbase()
 		tstampSub := header.Time.Int64() - parent.Time().Int64()
 		n := big.NewInt(tstampSub / common.BlockSlot.Int64())
-		IsValidMiner, level, preMinerid := minerlist.IsValidMiner(self.current.state, self.coinbase, preCoinbase, preQr, blockNumber, totalMinerNum, n)
+
+		IsValidMiner, level, preMinerid, nowMinerid := minerlist.IsValidMinerForMulitMiner(self.current.state, self.coinbase, preCoinbase, preQr, blockNumber, totalMinerNum, n, self.eth.AccountManager())
 		if !IsValidMiner {
 		DONE1:
 			for {
@@ -491,6 +492,7 @@ func (self *worker) commitNewWork() {
 		}
 
 		// calculate minerQrSignature for current block
+		fmt.Println("preMinerid", preMinerid)
 		qr, err := minerlist.CalQrOrIdNext(preCoinbase.Bytes(), blockNumber, preQr)
 		if err != nil {
 			log.Error("Failed to CalQrOrIdNext", "err", err)
@@ -498,14 +500,15 @@ func (self *worker) commitNewWork() {
 		}
 
 		// Look up the wallet containing the requested signer
-		account := accounts.Account{Address: self.coinbase}
+		fmt.Println("account", common.BytesToAddress(minerlist.ReadMinerAddress(self.current.state, nowMinerid)).String())
+		account := accounts.Account{Address: common.BytesToAddress(minerlist.ReadMinerAddress(self.current.state, nowMinerid))}
 		wallet, err := self.eth.AccountManager().Find(account)
 		if err != nil {
 			log.Error("To be a miner of usechain RPOW, need local account", "err", err)
 			return
 		}
 
-		minerQrSignature, err := wallet.SignHash(account, qr.Bytes())
+		minerQrSignature, err := wallet.SignHashWithPassphrase(account, "123456", qr.Bytes())
 		if err != nil {
 			log.Error("Failed to unlock the coinbase account", "err", err)
 			return
@@ -522,7 +525,9 @@ func (self *worker) commitNewWork() {
 		if header.Number.Cmp(common.Big1) == 0 {
 			header.DifficultyLevel = big.NewInt(0)
 		}
-		header.Coinbase = self.coinbase
+
+		header.Coinbase = common.BytesToAddress(minerlist.ReadMinerAddress(self.current.state, nowMinerid))
+		coinbaseTemp = header.Coinbase
 
 		if err := self.engine.Prepare(self.chain, header, self.current.state); err != nil {
 			log.Error("Failed to prepare header for mining", "err", err)
@@ -590,7 +595,7 @@ func (self *worker) commitNewWork() {
 		return
 	}
 	txs := types.NewTransactionsByPriceAndNonce(self.current.signer, pending)
-	work.commitTransactions(self.mux, txs, self.chain, self.coinbase)
+	work.commitTransactions(self.mux, txs, self.chain, coinbaseTemp)
 
 	// Create the new block to seal with the consensus engine
 	if work.Block, err = self.engine.Finalize(self.chain, header, work.state, work.txs, nil, work.receipts); err != nil {
