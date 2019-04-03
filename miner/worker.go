@@ -456,6 +456,14 @@ func (self *worker) commitNewWork() {
 
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	coinbaseTemp := self.coinbase
+
+	// Could potentially happen if starting to mine in an odd state.
+	err := self.makeCurrent(parent, header)
+	if err != nil {
+		log.Error("Failed to create mining context", "err", err)
+		return
+	}
+
 	if atomic.LoadInt32(&self.mining) == 1 {
 		totalMinerNum := minerlist.ReadMinerNum(self.current.state)
 
@@ -541,7 +549,7 @@ func (self *worker) commitNewWork() {
 	}
 
 	// Could potentially happen if starting to mine in an odd state.
-	err := self.makeCurrent(parent, header)
+	err = self.makeCurrent(parent, header)
 	if err != nil {
 		log.Error("Failed to create mining context", "err", err)
 		return
