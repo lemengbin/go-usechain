@@ -75,10 +75,10 @@ contract MinerList {
         _;
     }
 
-    modifier onlyMainAccount(address _user) {
-        require (Credit(CreditAddr).isMainAccount(_user) == true);
-        _;
-    }
+    //modifier onlyMainAccount(address _user) {
+    //   require (Credit(CreditAddr).isMainAccount(_user) == true);
+    //    _;
+    //}
 
     // calculate ticket should return to miners
     function dealTicket(address _miner) internal returns(uint256) {
@@ -100,7 +100,7 @@ contract MinerList {
     public
     payable
     onlyNotMiner(msg.sender)
-    onlyMainAccount(msg.sender)
+    //onlyMainAccount(msg.sender)
     returns(bool) {
         require(msg.value >= ticket);
         if (msg.value > ticket) {

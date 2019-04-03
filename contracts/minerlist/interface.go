@@ -18,12 +18,12 @@ package minerlist
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"strings"
-	"crypto/ecdsa"
-	"fmt"
-	
+
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/core/state"
@@ -32,11 +32,11 @@ import (
 )
 
 const (
-	MinerListContract = "0xfffffffffffffffffffffffffffffffff0000002"
+	MinerListContract = "0x47d01776adb811396fd320547e55ea5a6af20561"
 	ignoreSlot        = int64(1)
 	paramIndexFull    = "0x0000000000000000000000000000000000000000000000000000000000000000"
 	paramIndexaHead   = "000000000000000000000000"
-	PreQrLength 	  = 97
+	PreQrLength       = 97
 )
 
 var keyIndex = calKeyIndex()
